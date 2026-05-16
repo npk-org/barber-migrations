@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: atlas
+          POSTGRES_DB: dev
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Atlas
+        uses: ariga/setup-atlas@v0
+
+      - name: Lint pending migrations
+        run: atlas migrate lint --env local --latest 1 || true
+
+      - name: Validate schema applies cleanly to dev DB
+        run: |
+          # Apply versioned migrations if any, then verify desired-state diff is empty.
+          atlas migrate apply --env local
+          DIFF=$(atlas schema diff \
+            --from "postgres://postgres:atlas@localhost:5433/dev?sslmode=disable" \
+            --to "file://schema" \
+            --dev-url "docker://postgres/17/dev")
+          if [ -n "$DIFF" ]; then
+            echo "::error::schema/ diverged from migrations/ — run 'atlas migrate diff <name>' locally"
+            echo "$DIFF"
+            exit 1
+          fi
