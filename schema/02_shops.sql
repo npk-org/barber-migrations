@@ -92,10 +92,3 @@ CREATE TABLE IF NOT EXISTS service_templates (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS service_templates_code_uq ON service_templates (code);
-
--- Seed system-wide defaults. Idempotent.
-INSERT INTO service_templates (id, code, name_th, name_en, default_duration_minutes, default_buffer_minutes) VALUES
-  ('tpl_haircut',      'HAIRCUT',      'ตัดผม',           'Haircut',         50, 10),
-  ('tpl_beard',        'BEARD_TRIM',   'แต่งหนวด',         'Beard Trim',      20, 10),
-  ('tpl_haircut_wash', 'HAIRCUT_WASH', 'ตัดผม + สระผม',     'Haircut + Wash',  90, 10)
-ON CONFLICT (code) DO NOTHING;

@@ -4,8 +4,10 @@
 -- The base account row for every actor in the system. Role determines which
 -- additional profile tables (barber_profiles, shops.owner_id, etc.) reference
 -- this row.
-
-CREATE EXTENSION IF NOT EXISTS btree_gist;
+--
+-- Required Postgres extensions (installed out-of-band by scripts/migrate.sh,
+-- since Atlas free tier does not manage extensions):
+--   - btree_gist  (needed for GiST EXCLUDE constraints in 04_bookings.sql)
 
 CREATE TABLE IF NOT EXISTS users (
   id              TEXT          PRIMARY KEY,
