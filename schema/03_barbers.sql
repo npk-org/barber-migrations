@@ -1,16 +1,36 @@
 -- Owner: barber-svc
 -- Tables: barber_profiles, services, working_hours, schedule_exceptions
 
+-- Activation lifecycle (managed by barber-svc; see internal/reaper):
+--   pending_profile      barber row exists, no bio/services/hours yet
+--   pending_admin_verify barber has filled profile, awaiting admin approval
+--   active               admin approved (verified_at set)
+--   abandoned            14d inactive in pending_profile; 7d grace before purge
+--   suspended            admin action
+--
+-- last_active_at is touched on every authenticated barber-svc mutation. The
+-- reaper drives state transitions (advance to admin verify when filled, or
+-- toward abandoned when inactive).
 CREATE TABLE IF NOT EXISTS barber_profiles (
-  user_id       TEXT         PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  bio           TEXT,
-  photo_url     TEXT,
-  verified_at   TIMESTAMPTZ,
-  avg_rating    NUMERIC(3,2),
-  review_count  INTEGER      NOT NULL DEFAULT 0,
-  created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
+  user_id           TEXT         PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  bio               TEXT,
+  photo_url         TEXT,
+  verified_at       TIMESTAMPTZ,
+  avg_rating        NUMERIC(3,2),
+  review_count      INTEGER      NOT NULL DEFAULT 0,
+  activation_state  VARCHAR(32)  NOT NULL DEFAULT 'pending_profile',
+  state_changed_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  last_active_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  last_reminder_at  TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+
+  CONSTRAINT barber_profiles_activation_state_check
+    CHECK (activation_state IN ('pending_profile','pending_admin_verify','active','abandoned','suspended'))
 );
+
+CREATE INDEX IF NOT EXISTS barber_profiles_state_idx
+  ON barber_profiles (activation_state, last_active_at);
 
 
 CREATE TABLE IF NOT EXISTS services (
